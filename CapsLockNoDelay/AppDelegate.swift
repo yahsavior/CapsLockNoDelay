@@ -6,6 +6,7 @@
 //
 
 import Cocoa
+import ServiceManagement
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     var capsLockManager: Toggleable? = nil
@@ -20,24 +21,27 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             alert.runModal()
             NSApplication.shared.terminate(self)
         }
-
-//        if (!checkIfRunningFromApplicationsFolder()) {
-//            // Prompt the user to move the app to the Applications folder.
-//            let alert = NSAlert()
-//            alert.messageText = "Would you like to move CapsLockNoDelay to the applications forlder?"
-//            alert.alertStyle = .warning
-//            alert.addButton(withTitle: "Yes")
-//            alert.addButton(withTitle: "No")
-//            let response = alert.runModal()
-//            if (response == .alertFirstButtonReturn) {
-//                moveApplicationToApplicationsFolder()
-//
-//                // Run the app from the applications folder and terminate.
-//                NSWorkspace.shared.launchApplication("/Applications/CapsLockNoDelay.app")
-//                NSApplication.shared.terminate(self)
-//            }
-//        }
-
+        
+        // Add the app to login items if it's not already added
+        addAppToLoginItemsIfNeeded()
+        
+        //        if (!checkIfRunningFromApplicationsFolder()) {
+        //            // Prompt the user to move the app to the Applications folder.
+        //            let alert = NSAlert()
+        //            alert.messageText = "Would you like to move CapsLockNoDelay to the applications folder?"
+        //            alert.alertStyle = .warning
+        //            alert.addButton(withTitle: "Yes")
+        //            alert.addButton(withTitle: "No")
+        //            let response = alert.runModal()
+        //            if (response == .alertFirstButtonReturn) {
+        //                moveApplicationToApplicationsFolder()
+        //
+        //                // Run the app from the applications folder and terminate.
+        //                NSWorkspace.shared.launchApplication("/Applications/CapsLockNoDelay.app")
+        //                NSApplication.shared.terminate(self)
+        //            }
+        //        }
+        
         if (!hasAccessibilityPermission()) {
             askForAccessibilityPermission()
         }
@@ -48,7 +52,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         else {
             // I did not observe delays when switching layouts.
             // Enabling this when there are no delays may cause bugs.
-//            self.capsLockManager = InputSourceManager()
+            //            self.capsLockManager = InputSourceManager()
         }
         
         // Start listening for events.
@@ -68,16 +72,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
     }
-
+    
     func applicationWillTerminate(_ aNotification: Notification) {
         // Insert code here to tear down your application
     }
-
+    
     private func hasAccessibilityPermission() -> Bool {
         let options: NSDictionary = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String : true]
         return AXIsProcessTrustedWithOptions(options)
     }
-
+    
     private func askForAccessibilityPermission() {
         let alert = NSAlert.init()
         alert.messageText = "CapsLockNoDelay requires accessibility permissions."
@@ -90,24 +94,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 return
             }
             NSWorkspace.shared.open(url)
-            NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.systempreferences").first?.activate(options: .activateIgnoringOtherApps)
+            NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.systempreferences").first?.activate(options: [])
             NSApplication.shared.terminate(self)
         }
     }
-
+    
     private func checkIfAppIsAlreadyRunning() -> Bool {
         let bundleIdentifier = Bundle.main.bundleIdentifier!
         let runningApps = NSWorkspace.shared.runningApplications
         let isRunning = !runningApps.filter { $0.bundleIdentifier == bundleIdentifier && $0.processIdentifier != getpid() }.isEmpty
         return isRunning
     }
-
+    
     private func checkIfRunningFromApplicationsFolder() -> Bool {
         let bundlePath = Bundle.main.bundlePath
         let appPath = "/Applications/"
         return bundlePath.hasPrefix(appPath)
     }
-
+    
     private func moveApplicationToApplicationsFolder() {
         let bundlePath = Bundle.main.bundlePath
         let appPath = "/Applications/"
@@ -117,7 +121,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             try FileManager.default.moveItem(atPath: bundlePath, toPath: newPath)
         } catch {
             let alert = NSAlert()
-            alert.messageText = "Failed to move CapsLockNoDelay to the applications forlder."
+            alert.messageText = "Failed to move CapsLockNoDelay to the applications folder."
             alert.informativeText = error.localizedDescription
             alert.alertStyle = .warning
             alert.addButton(withTitle: "OK")
@@ -138,5 +142,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let output = String(data: data, encoding: .utf8)
         return output?.trimmingCharacters(in: .whitespacesAndNewlines) == "1"
     }
+    
+    private func addAppToLoginItemsIfNeeded() {
+        let alreadyLoginItem = UserDefaults.standard.bool(forKey: "isLoginItem")
+        
+        if !alreadyLoginItem {
+            let helperAppService = SMAppService.loginItem(identifier: "gkpln3.CapsLockNoDelay")
+            do {
+                try helperAppService.register()
+                UserDefaults.standard.set(true, forKey: "isLoginItem")
+                print("App successfully added to login items.")
+            } catch {
+                print("Failed to add app to login items: \(error)")
+            }
+        }
+    }
 }
-
