@@ -7,44 +7,46 @@
 
 import Cocoa
 import ServiceManagement
+import LaunchAtLogin
+import Foundation
+
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     var capsLockManager: Toggleable? = nil
+
     
     func applicationDidFinishLaunching(_ aNotification: Notification) {
-        if (checkIfAppIsAlreadyRunning()) {
-            // Show an alert and quit.
-            let alert = NSAlert()
-            alert.messageText = "CapsLockNoDelay is already running."
-            alert.alertStyle = .warning
-            alert.addButton(withTitle: "OK")
-            alert.runModal()
-            NSApplication.shared.terminate(self)
+
+        if !isInApplicationsFolder() {
+                showAlertMoveToApplications()
+                moveAppToApplicationsFolder()
+                NSApp.terminate(nil) // Exit the app after moving
+            }
+        
+        print(LaunchAtLogin.isEnabled)
+        //=> false
+
+        LaunchAtLogin.isEnabled = true
+
+        print(LaunchAtLogin.isEnabled)
+        //=> true
+        
+        
+        requestAccessibilityPermissionsIfNeeded()
+        
+        if !checkAccessibilityPermissions() {
+            showAccessibilityAlertAndTerminate()
         }
         
-        // Add the app to login items if it's not already added
-        addAppToLoginItemsIfNeeded()
-        
-        //        if (!checkIfRunningFromApplicationsFolder()) {
-        //            // Prompt the user to move the app to the Applications folder.
-        //            let alert = NSAlert()
-        //            alert.messageText = "Would you like to move CapsLockNoDelay to the applications folder?"
-        //            alert.alertStyle = .warning
-        //            alert.addButton(withTitle: "Yes")
-        //            alert.addButton(withTitle: "No")
-        //            let response = alert.runModal()
-        //            if (response == .alertFirstButtonReturn) {
-        //                moveApplicationToApplicationsFolder()
-        //
-        //                // Run the app from the applications folder and terminate.
-        //                NSWorkspace.shared.launchApplication("/Applications/CapsLockNoDelay.app")
-        //                NSApplication.shared.terminate(self)
-        //            }
-        //        }
-        
-        if (!hasAccessibilityPermission()) {
-            askForAccessibilityPermission()
-        }
+        let alert = NSAlert()
+        alert.messageText = "App Opened Successfully"
+        alert.informativeText = "CapsLockNoDelay has launched successfully."
+
+        // Add buttons to the alert
+        alert.addButton(withTitle: "OK")
+
+        // Display the alert
+        alert.runModal()
         
         if !checkIfCapsLockIsAssignedToLayoutSwitching() {
             self.capsLockManager = CapsLockManager()
@@ -58,6 +60,54 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Start listening for events.
         registerEventListener()
     }
+    
+    func showAccessibilityAlertAndTerminate() {
+        let alert = NSAlert()
+        alert.messageText = "Accessibility Permissions Required"
+        alert.informativeText = "CapsLockNoDelay requires Accessibility permissions to function properly. Please enable these permissions in System Preferences."
+        alert.alertStyle = .critical
+        alert.addButton(withTitle: "OK")
+        
+        alert.runModal()
+        NSApp.terminate(self)
+    }
+    
+    func checkAccessibilityPermissions() -> Bool {
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
+        return AXIsProcessTrustedWithOptions(options as CFDictionary)
+    }
+    
+    func isInApplicationsFolder() -> Bool {
+        let bundlePath = Bundle.main.bundlePath
+        let applicationsFolderPath = "/Applications"
+        
+        return bundlePath.hasPrefix(applicationsFolderPath)
+    }
+    
+    func showAlertMoveToApplications() {
+        let alert = NSAlert()
+        alert.messageText = "Move App to Applications Folder"
+        alert.informativeText = "Please move this app to the Applications folder."
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "OK")
+        
+        alert.runModal()
+    }
+    
+    func moveAppToApplicationsFolder() {
+        let fileManager = FileManager.default
+        let appPath = Bundle.main.bundlePath
+        let applicationsFolderPath = "/Applications"
+        let newPath = "\(applicationsFolderPath)/\(URL(fileURLWithPath: appPath).lastPathComponent)"
+        
+        do {
+            try fileManager.moveItem(atPath: appPath, toPath: newPath)
+            print("App moved to Applications folder")
+        } catch {
+            print("Error moving app: \(error.localizedDescription)")
+        }
+    }
+
     
     /// Register an event listener and listen for caps-lock presses.
     func registerEventListener() {
@@ -77,33 +127,51 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Insert code here to tear down your application
     }
     
-    private func hasAccessibilityPermission() -> Bool {
-        let options: NSDictionary = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String : true]
-        return AXIsProcessTrustedWithOptions(options)
-    }
+//    private func hasAccessibilityPermission() -> Bool {
+//        let options: NSDictionary = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String : true]
+//        return AXIsProcessTrustedWithOptions(options)
+//    }
     
-    private func askForAccessibilityPermission() {
-        let alert = NSAlert.init()
-        alert.messageText = "CapsLockNoDelay requires accessibility permissions."
-        alert.informativeText = "Please re-launch CapsLockNoDelay after you've granted permission in system preferences."
-        alert.addButton(withTitle: "Configure Accessibility Settings")
-        alert.alertStyle = NSAlert.Style.warning
+//    private func askForAccessibilityPermission() {
+//        let alert = NSAlert.init()
+//        alert.messageText = "CapsLockNoDelay requires accessibility permissions."
+//        alert.informativeText = "Please re-launch CapsLockNoDelay after you've granted permission in system preferences."
+//        alert.addButton(withTitle: "Configure Accessibility Settings")
+//        alert.alertStyle = NSAlert.Style.warning
 
-        if alert.runModal() == .alertFirstButtonReturn {
-            guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") else {
-                return
+//        if alert.runModal() == .alertFirstButtonReturn {
+//            guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") else {
+//                return
+//            }
+//            NSWorkspace.shared.open(url)
+//            NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.systempreferences").first?.activate(options: [])
+//            NSApplication.shared.terminate(self)
+//        }
+//    }
+    
+    func requestAccessibilityPermissionsIfNeeded() {
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
+        let accessibilityEnabled = AXIsProcessTrustedWithOptions(options as CFDictionary)
+        
+        if !accessibilityEnabled {
+            // Show a dialog or prompt the user to enable Accessibility
+            let alert = NSAlert()
+            alert.messageText = "Accessibility Permissions Required"
+            alert.informativeText = "CapsLockNoDelay requires Accessibility permissions to function properly. Please enable these permissions in System Preferences."
+            alert.addButton(withTitle: "Open System Preferences")
+            alert.addButton(withTitle: "Cancel")
+            
+            let response = alert.runModal()
+            if response == .alertFirstButtonReturn {
+                openAccessibilityPreferences()
             }
-            NSWorkspace.shared.open(url)
-            NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.systempreferences").first?.activate(options: [])
-            NSApplication.shared.terminate(self)
         }
     }
-    
-    private func checkIfAppIsAlreadyRunning() -> Bool {
-        let bundleIdentifier = Bundle.main.bundleIdentifier!
-        let runningApps = NSWorkspace.shared.runningApplications
-        let isRunning = !runningApps.filter { $0.bundleIdentifier == bundleIdentifier && $0.processIdentifier != getpid() }.isEmpty
-        return isRunning
+
+    func openAccessibilityPreferences() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+            NSWorkspace.shared.open(url)
+        }
     }
     
     private func checkIfRunningFromApplicationsFolder() -> Bool {
@@ -141,20 +209,5 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         let output = String(data: data, encoding: .utf8)
         return output?.trimmingCharacters(in: .whitespacesAndNewlines) == "1"
-    }
-    
-    private func addAppToLoginItemsIfNeeded() {
-        let alreadyLoginItem = UserDefaults.standard.bool(forKey: "isLoginItem")
-        
-        if !alreadyLoginItem {
-            let helperAppService = SMAppService.loginItem(identifier: "gkpln3.CapsLockNoDelay")
-            do {
-                try helperAppService.register()
-                UserDefaults.standard.set(true, forKey: "isLoginItem")
-                print("App successfully added to login items.")
-            } catch {
-                print("Failed to add app to login items: \(error)")
-            }
-        }
     }
 }
