@@ -7,6 +7,6 @@ Confirmed working on MacOS Sonoma 14.5
 
 ### Manual
 
-Download from [releases](https://github.com/gkpln3/CapsLockNoDelay/releases) or compile from source.
+Download from [releases](https://github.com/yahsavior/CapsLockNoDelay/releases) or compile from source.
 
 Open the DMG and move the app to Applications folder.
