@@ -22,7 +22,7 @@ class CapsLockManager: Toggleable {
     public func setCapsLockState(_ state: Bool) {
         self.currentState = state
         var ioConnect: io_connect_t = .init(0)
-        let ioService = IOServiceGetMatchingService(kIOMasterPortDefault, IOServiceMatching(kIOHIDSystemClass))
+        let ioService = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching(kIOHIDSystemClass))
         IOServiceOpen(ioService, mach_task_self_, UInt32(kIOHIDParamConnectType), &ioConnect)
         IOHIDSetModifierLockState(ioConnect, Int32(kIOHIDCapsLockState), state)
         IOServiceClose(ioConnect)
@@ -30,7 +30,7 @@ class CapsLockManager: Toggleable {
 
     public static func getCapsLockState() -> Bool {
         var ioConnect: io_connect_t = .init(0)
-        let ioService = IOServiceGetMatchingService(kIOMasterPortDefault, IOServiceMatching(kIOHIDSystemClass))
+        let ioService = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching(kIOHIDSystemClass))
         IOServiceOpen(ioService, mach_task_self_, UInt32(kIOHIDParamConnectType), &ioConnect)
 
         var modifierLockState = false
